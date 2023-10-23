@@ -2,9 +2,11 @@ package main
 
 import (
 	"flag"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	"golang.org/x/net/proxy"
 )
@@ -18,9 +20,15 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	proxy := httputil.NewSingleHostReverseProxy(s.targetURL)
 	proxy.Transport = &http.Transport{Dial: s.dialer.Dial}
 	originalDirector := proxy.Director
+
+	startTime := time.Now()
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)
 		req.Host = s.targetURL.Host
+	}
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		log.Printf("response: [%d] %s %s %v", resp.StatusCode, resp.Request.Method, resp.Request.URL.String(), time.Since(startTime))
+		return nil
 	}
 
 	proxy.ServeHTTP(w, r)
